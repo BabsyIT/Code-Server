@@ -1,0 +1,23 @@
+name: Deploy Code-Server
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/stefan/projects/Code-Server
+            git fetch origin main
+            git checkout main
+            git reset --hard origin/main
+            docker compose build code-server oauth2-proxy
+            docker compose up -d
