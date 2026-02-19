@@ -1,0 +1,33 @@
+name: Auto PR dev → main
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if a PR from dev to main already exists
+          EXISTING_PR=$(gh pr list --base main --head dev --state open --json number --jq '.[0].number')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists, skipping creation."
+          else
+            gh pr create \
+              --base main \
+              --head dev \
+              --title "Deploy: dev → main" \
+              --body "Automatisch erstellter PR von \`dev\` nach \`main\`."
+            echo "PR created."
+          fi
