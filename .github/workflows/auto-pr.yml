@@ -1,0 +1,44 @@
+name: Auto PR dev → main
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create PR per commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all new commits in this push (oldest first)
+          COMMITS=$(git log --reverse --pretty=format:"%H %s" ${{ github.event.before }}..${{ github.event.after }})
+
+          while IFS= read -r line; do
+            SHA=$(echo "$line" | cut -d' ' -f1)
+            MSG=$(echo "$line" | cut -d' ' -f2-)
+            BRANCH="deploy/${SHA:0:7}"
+
+            # Create branch at this commit and push
+            git checkout -b "$BRANCH" "$SHA"
+            git push origin "$BRANCH"
+
+            # Create PR
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "$MSG" \
+              --body "Automatisch erstellter PR für Commit \`${SHA:0:7}\`."
+
+            # Go back to original state
+            git checkout -
+          done <<< "$COMMITS"
