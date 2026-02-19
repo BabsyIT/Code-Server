@@ -1,6 +1,6 @@
 FROM quay.io/oauth2-proxy/oauth2-proxy:latest
 
-USER oauth2-proxy:oauth2-proxy
+USER 65532:65532
 
 EXPOSE 4180
 
