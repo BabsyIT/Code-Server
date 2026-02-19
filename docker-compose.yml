@@ -1,0 +1,59 @@
+# Babsy Code-Server
+# =================
+# VS Code im Browser mit Entra ID Authentifizierung
+# URL: https://code.test.babsy.ch
+
+services:
+  code-server:
+    build:
+      context: ./docker/code-server
+      dockerfile: Dockerfile
+    container_name: babsy-code-server
+    restart: unless-stopped
+    environment:
+      - DOCKER_USER=${CODE_SERVER_USER:-coder}
+    volumes:
+      - vscode-home:/home/coder/.local
+      - ${HOST_WORKSPACE:-./workspace}:/home/coder/workspace
+    networks:
+      - default
+
+  oauth2-proxy:
+    build:
+      context: ./docker/oauth2-proxy
+      dockerfile: Dockerfile
+    container_name: babsy-oauth2-proxy
+    restart: unless-stopped
+    command:
+      - --config=/etc/oauth2-proxy/oauth2-proxy.cfg
+      - --client-id=${ENTRA_CLIENT_ID}
+      - --client-secret=${ENTRA_CLIENT_SECRET}
+      - --oidc-issuer-url=${ENTRA_ISSUER_URL}
+      - --redirect-url=${ENTRA_REDIRECT_URL:-https://code.test.babsy.ch/oauth2/callback}
+      - --cookie-secret=${OAUTH2_COOKIE_SECRET}
+      - --cookie-domain=${OAUTH2_COOKIE_DOMAIN:-.test.babsy.ch}
+    volumes:
+      - ./docker/oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.babsy-code.rule=Host(`code.test.babsy.ch`)"
+      - "traefik.http.routers.babsy-code.entrypoints=websecure"
+      - "traefik.http.routers.babsy-code.tls=true"
+      - "traefik.http.routers.babsy-code.tls.certresolver=letsencrypt"
+      - "traefik.http.services.babsy-code.loadbalancer.server.port=4180"
+      - "traefik.docker.network=traefik-network"
+    networks:
+      - default
+      - traefik
+    depends_on:
+      - code-server
+
+volumes:
+  vscode-home:
+
+networks:
+  default:
+    name: code-server-network
+  traefik:
+    external: true
+    name: traefik-network
